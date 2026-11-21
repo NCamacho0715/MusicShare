@@ -225,8 +225,86 @@ function toFrontendLoan(
 }
 
 // Cache en memoria para enriquecer entidades relacionadas
-let usersCache: User[] = [];
-let instrumentsCache: Instrument[] = [];
+let usersCache: User[] = [
+  {
+    id: 'usr-musico-001',
+    name: 'Ana Gómez',
+    email: 'ana.gomez@musicshare.org',
+    role: 'musician',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-propietario-001',
+    name: 'Academia Filarmónica Bogotá',
+    email: 'contacto@filarmonicabogota.com',
+    role: 'owner',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-admin-001',
+    name: 'Sebastián Administrador',
+    email: 'admin@musicshare.local',
+    role: 'admin',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-estudiante-001',
+    name: 'Carlos Pérez',
+    email: 'carlos.perez@musica.edu.co',
+    role: 'musician',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+];
+
+const FALLBACK_INSTRUMENTS: Instrument[] = [
+  {
+    id: 'inst-guitarra-001',
+    name: 'Guitarra Clásica Yamaha C40',
+    category: 'cuerdas',
+    brand: 'Yamaha C40',
+    description: 'Guitarra acústica de estudio, excelente estado y cuerdas de nylon.',
+    condition: 'excelente',
+    status: 'disponible',
+    ownerId: 'usr-propietario-001',
+    ownerName: 'Academia Filarmónica Bogotá',
+    imageUrl: './images/guitarra-acustica.jpg',
+    location: 'Bogotá, Colombia',
+    createdAt: '2026-11-20T10:00:00Z',
+    updatedAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'inst-teclado-001',
+    name: 'Teclado Sensitivo Roland GO:KEYS',
+    category: 'teclados',
+    brand: 'Roland GO:KEYS 61',
+    description: 'Teclado de 61 teclas con conexión Bluetooth y sonidos profesionales.',
+    condition: 'excelente',
+    status: 'disponible',
+    ownerId: 'usr-propietario-001',
+    ownerName: 'Academia Filarmónica Bogotá',
+    imageUrl: './images/teclado-sensitivo.jpg',
+    location: 'Bogotá, Colombia',
+    createdAt: '2026-11-20T10:00:00Z',
+    updatedAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'inst-violin-001',
+    name: 'Violín Cremona SV-175 4/4',
+    category: 'cuerdas',
+    brand: 'Cremona SV-175',
+    description: 'Violín profesional con arco de pernambuco y estuche rígido.',
+    condition: 'bueno',
+    status: 'disponible',
+    ownerId: 'usr-musico-001',
+    ownerName: 'Ana Gómez',
+    imageUrl: './images/violin-estudio.jpg',
+    location: 'Bogotá, Colombia',
+    createdAt: '2026-11-20T10:00:00Z',
+    updatedAt: '2026-11-20T10:00:00Z',
+  },
+];
+
+let instrumentsCache: Instrument[] = FALLBACK_INSTRUMENTS;
 
 async function ensureUsersCache(): Promise<User[]> {
   try {
@@ -353,14 +431,19 @@ export const apiAdapter: MusicShareService = {
         filters.status === 'mantenimiento' ? 'en_mantenimiento' : filters.status;
     }
 
-    const raw = await httpDataRequest<BackendInstrumento[]>('/instrumentos', {
-      query: queryParams,
-    });
+    let items: Instrument[] = [];
+    try {
+      const raw = await httpDataRequest<BackendInstrumento[]>('/instrumentos', {
+        query: queryParams,
+      });
 
-    const users = await ensureUsersCache();
-    const userMap = new Map(users.map((u) => [u.id, u.name]));
-
-    let items = raw.map((i) => toFrontendInstrument(i, userMap.get(i.propietario_id)));
+      const users = await ensureUsersCache();
+      const userMap = new Map(users.map((u) => [u.id, u.name]));
+      items = raw.map((i) => toFrontendInstrument(i, userMap.get(i.propietario_id)));
+    } catch (err) {
+      console.warn('Backend /instrumentos no disponible en este momento:', err);
+      items = FALLBACK_INSTRUMENTS;
+    }
 
     // Filtro de búsqueda textual en cliente si se especificó 'q'
     if (filters?.q && filters.q.trim().length > 0) {
@@ -476,26 +559,31 @@ export const apiAdapter: MusicShareService = {
       queryParams.estado = filters.status;
     }
 
-    const raw = await httpDataRequest<BackendPrestamo[]>('/prestamos', {
-      query: queryParams,
-    });
+    try {
+      const raw = await httpDataRequest<BackendPrestamo[]>('/prestamos', {
+        query: queryParams,
+      });
 
-    const [users, instruments] = await Promise.all([
-      ensureUsersCache(),
-      ensureInstrumentsCache(),
-    ]);
+      const [users, instruments] = await Promise.all([
+        ensureUsersCache(),
+        ensureInstrumentsCache(),
+      ]);
 
-    const userMap = new Map(users.map((u) => [u.id, u]));
-    const instMap = new Map(instruments.map((i) => [i.id, i]));
+      const userMap = new Map(users.map((u) => [u.id, u]));
+      const instMap = new Map(instruments.map((i) => [i.id, i]));
 
-    return raw.map((p) =>
-      toFrontendLoan(
-        p,
-        instMap.get(p.instrumento_id),
-        userMap.get(p.solicitante_id),
-        userMap.get(p.propietario_id),
-      ),
-    );
+      return raw.map((p) =>
+        toFrontendLoan(
+          p,
+          instMap.get(p.instrumento_id),
+          userMap.get(p.solicitante_id),
+          userMap.get(p.propietario_id),
+        ),
+      );
+    } catch (err) {
+      console.warn('Backend /prestamos no disponible en este momento:', err);
+      return [];
+    }
   },
 
   async getLoan(id: string): Promise<Loan> {

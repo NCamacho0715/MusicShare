@@ -149,9 +149,13 @@ export async function httpRequest<T>(
   }
 
   let response: Response;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 4000);
+
   try {
     response = await fetch(buildUrl(path, query), {
       ...rest,
+      signal: rest.signal || timeoutController.signal,
       headers,
       body: preparedBody,
     });
@@ -161,6 +165,8 @@ export async function httpRequest<T>(
       status: 0,
       details: networkError,
     });
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (response.status === 204) {

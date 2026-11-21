@@ -29,14 +29,46 @@ export interface UserContextValue {
   closeAlertDrawer: () => void;
 }
 
+const SEED_USERS: User[] = [
+  {
+    id: 'usr-musico-001',
+    name: 'Ana Gómez',
+    email: 'ana.gomez@musicshare.org',
+    role: 'musician',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-propietario-001',
+    name: 'Academia Filarmónica Bogotá',
+    email: 'contacto@filarmonicabogota.com',
+    role: 'owner',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-admin-001',
+    name: 'Sebastián Administrador',
+    email: 'admin@musicshare.local',
+    role: 'admin',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+  {
+    id: 'usr-estudiante-001',
+    name: 'Carlos Pérez',
+    email: 'carlos.perez@musica.edu.co',
+    role: 'musician',
+    createdAt: '2026-11-20T10:00:00Z',
+  },
+];
+
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>(SEED_USERS);
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
     getActiveUserSession(),
   );
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  // Iniciar en false para renderizado inmediato; la sincronización con el backend corre en segundo plano
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState(false);
 
@@ -70,75 +102,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.warn('Conexión con /usuarios no disponible en este momento:', err);
     }
-
-    // Cuentas de respaldo alineadas con seed_data.py para evitar pantalla en blanco si el backend aún no responde
-    const fallbackUsers: User[] = [
-      {
-        id: 'usr-musico-001',
-        name: 'Ana Gómez',
-        email: 'ana.gomez@musicshare.org',
-        role: 'musician',
-        createdAt: '2026-11-20T10:00:00Z',
-      },
-      {
-        id: 'usr-propietario-001',
-        name: 'Academia Filarmónica Bogotá',
-        email: 'contacto@filarmonicabogota.com',
-        role: 'owner',
-        createdAt: '2026-11-20T10:00:00Z',
-      },
-      {
-        id: 'usr-admin-001',
-        name: 'Sebastián Administrador',
-        email: 'admin@musicshare.local',
-        role: 'admin',
-        createdAt: '2026-11-20T10:00:00Z',
-      },
-      {
-        id: 'usr-estudiante-001',
-        name: 'Carlos Pérez',
-        email: 'carlos.perez@musica.edu.co',
-        role: 'musician',
-        createdAt: '2026-11-20T10:00:00Z',
-      },
-    ];
-    setUsers(fallbackUsers);
-    return fallbackUsers;
+    return SEED_USERS;
   }, []);
 
   useEffect(() => {
     let active = true;
 
     async function bootstrap() {
-      setLoadingUsers(true);
       try {
         const fetchedUsers = await refreshUsersList();
         if (!active) return;
 
         const stored = getActiveUserSession();
-        if (!stored) {
-          setCurrentUser(null);
-          setUnreadAlertsCount(0);
-          return;
-        }
-
-        const resolved =
-          fetchedUsers.find((u) => u.id === stored.id) ?? stored;
-        setCurrentUser(resolved);
-
-        try {
-          await musicShareService.runDueDateCheck();
-        } catch {
-          // Silencioso si el chequeo automático no responde
-        }
-
-        if (active) {
+        if (stored) {
+          const resolved =
+            fetchedUsers.find((u) => u.id === stored.id) ?? stored;
+          setCurrentUser(resolved);
           await countUnreadForUser(resolved);
         }
       } catch (err) {
-        console.error('Error durante la inicialización de sesión:', err);
-      } finally {
-        setLoadingUsers(false);
+        console.warn('Inicialización en segundo plano:', err);
       }
     }
 

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Info, LogIn, UserCheck } from 'lucide-react';
 import { AuthLayout } from '../components/auth/AuthLayout';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../context/ToastContext';
@@ -8,20 +8,10 @@ import { useUser } from '../context/UserContext';
 import {
   ApiError,
   DEMO_USER_PASSWORD,
-  musicShareService,
 } from '../services/index';
-import type { UserRole } from '../types/models';
+import type { User } from '../types/models';
+import { getRoleLabel, getUserInitials } from '../utils/formatters';
 import { extractZodFieldErrors, loginFormSchema } from '../utils/validators';
-
-const DEMO_ACCOUNTS: Array<{
-  role: UserRole;
-  label: string;
-  fallbackEmail: string;
-}> = [
-  { role: 'musician', label: 'Músico', fallbackEmail: 'ana.gomez@musicshare.org' },
-  { role: 'owner', label: 'Propietario', fallbackEmail: 'contacto@filarmonicabogota.com' },
-  { role: 'admin', label: 'Academia', fallbackEmail: 'admin@musicshare.local' },
-];
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -30,7 +20,7 @@ export function LoginPage() {
   const { users, login } = useUser();
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(DEMO_USER_PASSWORD);
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -68,12 +58,25 @@ export function LoginPage() {
     }
   }
 
-  function fillDemoAccount(role: UserRole, fallbackEmail: string) {
-    const match = users.find((u) => u.role === role);
-    setEmail(match?.email ?? fallbackEmail);
+  async function quickLoginWithUser(targetUser: User) {
+    setEmail(targetUser.email);
     setPassword(DEMO_USER_PASSWORD);
     setFieldErrors({});
     setFormError(null);
+    setSubmitting(true);
+    try {
+      const user = await login({
+        email: targetUser.email,
+        password: DEMO_USER_PASSWORD,
+      });
+      showToast(`Bienvenido, ${user.name}.`, 'success');
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setFormError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -86,6 +89,14 @@ export function LoginPage() {
         onSubmit={(e) => void handleSubmit(e)}
         className="flex flex-col gap-5"
       >
+        {/* Banner explicativo del MVP y autenticación por headers */}
+        <div className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-pool-blue-deep/20 bg-pool-blue/20 p-3.5 text-xs text-dark-cocoa">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-pool-blue-deep" aria-hidden="true" />
+          <div className="leading-relaxed">
+            <span className="font-semibold">Autenticación Serverless (MVP):</span> La plataforma opera mediante <em>headers simulados</em> (<code className="font-mono text-[11px] bg-canvas/60 px-1 py-0.5 rounded">X-User-Id</code> y <code className="font-mono text-[11px] bg-canvas/60 px-1 py-0.5 rounded">X-User-Role</code>). En DynamoDB no se almacenan contraseñas; puedes usar cualquier contraseña (ej. <code className="font-mono">password123</code>) o hacer clic directo sobre cualquiera de los usuarios de la lista inferior.
+          </div>
+        </div>
+
         {formError ? (
           <div
             role="alert"
@@ -142,7 +153,7 @@ export function LoginPage() {
               name="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Cualquier contraseña (ej. password123)"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
@@ -201,25 +212,60 @@ export function LoginPage() {
           </Link>
         </p>
 
-        {musicShareService.mode === 'mock' ? (
-          <div className="mt-2 border-t border-dark-cocoa/12 pt-5">
-            <p className="mb-3 font-sans text-xs font-semibold text-ink-muted">
-              Cuentas de prueba
+        {/* Sección de Selección Directa de Usuarios (DynamoDB / Seed) */}
+        <div className="mt-2 border-t border-dark-cocoa/12 pt-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="font-sans text-xs font-semibold uppercase tracking-wider text-ink-muted">
+              Usuarios disponibles en el sistema ({users.length})
             </p>
-            <div className="grid grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.role}
-                  type="button"
-                  onClick={() => fillDemoAccount(acc.role, acc.fallbackEmail)}
-                  className="min-h-[40px] rounded-[var(--radius-control)] border border-dark-cocoa/18 bg-surface px-3 py-2 font-sans text-xs font-semibold text-dark-cocoa transition-colors hover:bg-pool-blue/40 cursor-pointer"
-                >
-                  {acc.label}
-                </button>
-              ))}
-            </div>
+            <span className="text-[11px] text-ink-muted/80">Acceso con 1 clic</span>
           </div>
-        ) : null}
+
+          <div className="flex flex-col gap-2">
+            {users.map((u) => {
+              const initials = getUserInitials(u.name);
+              const isSelected = email.toLowerCase() === u.email.toLowerCase();
+
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void quickLoginWithUser(u)}
+                  className={`flex items-center justify-between rounded-[var(--radius-control)] border p-2.5 text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-pool-blue-deep bg-pool-blue/20 ring-2 ring-pool-blue-deep/30'
+                      : 'border-dark-cocoa/12 bg-surface hover:border-dark-cocoa/30 hover:bg-surface-muted'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      aria-hidden="true"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pool-blue font-sans text-xs font-bold text-dark-cocoa shadow-cocoa-sm"
+                    >
+                      {initials}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate font-sans text-xs font-semibold text-dark-cocoa">
+                        {u.name}
+                      </p>
+                      <p className="truncate font-mono text-[11px] text-ink-muted">
+                        {u.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded-full bg-dark-cocoa/8 px-2 py-0.5 font-sans text-[10px] font-semibold text-dark-cocoa">
+                      {getRoleLabel(u.role)}
+                    </span>
+                    <UserCheck className="h-4 w-4 text-pool-blue-deep opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </form>
     </AuthLayout>
   );

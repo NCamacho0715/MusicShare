@@ -17,6 +17,8 @@ export function Navbar() {
   const { showToast } = useToast();
   const {
     currentUser,
+    users,
+    switchUser,
     logout,
     unreadAlertsCount,
     openAlertDrawer,
@@ -133,9 +135,9 @@ export function Navbar() {
                 ) : null}
               </button>
 
-              {/* Usuario autenticado Desktop */}
+              {/* Usuario autenticado y Selector rápido Desktop */}
               <div
-                className={`hidden sm:flex items-center gap-2.5 rounded-full pl-1.5 pr-3 py-1 transition-colors border ${
+                className={`hidden sm:flex items-center gap-2 rounded-full pl-1.5 pr-2 py-1 transition-colors border ${
                   isTransparent
                     ? 'border-canvas/30 bg-dark-cocoa/45 text-canvas backdrop-blur-sm'
                     : 'border-dark-cocoa/15 bg-surface-muted text-dark-cocoa'
@@ -147,18 +149,32 @@ export function Navbar() {
                 >
                   {initials}
                 </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-sans text-xs font-semibold">
-                    {currentUser.name}
-                  </span>
-                  <span
-                    className={`font-sans text-xs ${
-                      isTransparent ? 'text-canvas/80' : 'text-ink-muted'
-                    }`}
-                  >
-                    · {getRoleLabel(currentUser.role)}
-                  </span>
-                </div>
+
+                <select
+                  aria-label="Cambiar usuario activo"
+                  title="Cambiar usuario activo (Simulación de headers)"
+                  value={currentUser.id}
+                  onChange={(e) => {
+                    switchUser(e.target.value);
+                    const selected = users.find((u) => u.id === e.target.value);
+                    if (selected) {
+                      showToast(`Cambiado a: ${selected.name} (${getRoleLabel(selected.role)})`, 'info');
+                    }
+                  }}
+                  className={`bg-transparent font-sans text-xs font-semibold focus:outline-none cursor-pointer pr-1 ${
+                    isTransparent ? 'text-canvas' : 'text-dark-cocoa'
+                  }`}
+                >
+                  {users.map((u) => (
+                    <option
+                      key={u.id}
+                      value={u.id}
+                      className="bg-surface text-dark-cocoa py-1 font-sans text-xs"
+                    >
+                      {u.name} · {getRoleLabel(u.role)}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
