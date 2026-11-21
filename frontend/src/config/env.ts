@@ -4,11 +4,11 @@ function normalizeBaseUrl(url: string | undefined, fallback: string): string {
 }
 
 export const ENV = {
-  useMocks: import.meta.env.VITE_USE_MOCKS !== 'false',
+  useMocks: import.meta.env.VITE_USE_MOCKS === 'true',
   apiBaseUrl: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL, 'http://localhost:4566'),
   s3ImagesBaseUrl: normalizeBaseUrl(
     import.meta.env.VITE_S3_IMAGES_BASE_URL,
-    'http://localhost:4566/imginstrumentos',
+    'http://localhost:4566/musicshare-instrument-images',
   ),
 } as const;
 

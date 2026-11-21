@@ -4,9 +4,10 @@ module "dynamodb" {
 }
 
 module "s3" {
-  source      = "./modules/s3"
-  bucket_name = var.bucket_name
-  environment = var.environment
+  source               = "./modules/s3"
+  bucket_name          = var.bucket_name
+  frontend_bucket_name = var.frontend_bucket_name
+  environment          = var.environment
 }
 
 module "sqs" {

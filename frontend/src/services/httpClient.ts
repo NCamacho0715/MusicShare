@@ -85,12 +85,20 @@ export function buildMockAuthHeaders(): Record<string, string> {
 
   if (user) {
     headers['X-User-Id'] = user.id;
-    headers['X-User-Role'] = user.role;
+    const backendRole =
+      user.role === 'owner' ? 'propietario' : user.role === 'admin' ? 'administrador' : 'musico';
+    headers['X-User-Role'] = backendRole;
     headers['X-User-Name'] = encodeURIComponent(user.name);
     headers['X-User-Email'] = user.email;
   }
 
   return headers;
+}
+
+export interface BackendEnvelope<T> {
+  message?: string;
+  data: T;
+  success?: boolean;
 }
 
 export interface HttpRequestOptions extends Omit<RequestInit, 'body'> {
@@ -99,8 +107,9 @@ export interface HttpRequestOptions extends Omit<RequestInit, 'body'> {
 }
 
 function buildUrl(path: string, query?: HttpRequestOptions['query']): string {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = new URL(`${ENV.apiBaseUrl}${normalizedPath}`);
+  const cleanBase = ENV.apiBaseUrl.replace(/\/+$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${cleanBase}${cleanPath}`);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== '' && value !== 'all') {
@@ -139,11 +148,20 @@ export async function httpRequest<T>(
     }
   }
 
-  const response = await fetch(buildUrl(path, query), {
-    ...rest,
-    headers,
-    body: preparedBody,
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, query), {
+      ...rest,
+      headers,
+      body: preparedBody,
+    });
+  } catch (networkError) {
+    throw new ApiError({
+      message: `No se pudo conectar con el servidor backend (${ENV.apiBaseUrl}). Asegúrate de que Floci esté corriendo con '.\\musicshare.ps1 start'.`,
+      status: 0,
+      details: networkError,
+    });
+  }
 
   if (response.status === 204) {
     return undefined as T;
@@ -160,12 +178,18 @@ export async function httpRequest<T>(
   }
 
   if (!response.ok) {
-    const detail =
-      typeof parsed === 'object' && parsed !== null && 'detail' in parsed
-        ? String((parsed as { detail: unknown }).detail)
-        : typeof parsed === 'object' && parsed !== null && 'message' in parsed
-          ? String((parsed as { message: unknown }).message)
-          : `Error HTTP ${response.status}`;
+    let detail = `Error HTTP ${response.status}`;
+    if (typeof parsed === 'object' && parsed !== null) {
+      const p = parsed as Record<string, unknown>;
+      const errorObj = p.error as Record<string, unknown> | undefined;
+      if (errorObj && typeof errorObj === 'object' && errorObj.message) {
+        detail = String(errorObj.message);
+      } else if (p.message) {
+        detail = String(p.message);
+      } else if (p.detail) {
+        detail = String(p.detail);
+      }
+    }
 
     throw new ApiError({
       message: detail,
@@ -175,4 +199,15 @@ export async function httpRequest<T>(
   }
 
   return parsed as T;
+}
+
+export async function httpDataRequest<T>(
+  path: string,
+  options: HttpRequestOptions = {},
+): Promise<T> {
+  const res = await httpRequest<BackendEnvelope<T> | T>(path, options);
+  if (res && typeof res === 'object' && 'data' in res) {
+    return (res as BackendEnvelope<T>).data;
+  }
+  return res as T;
 }

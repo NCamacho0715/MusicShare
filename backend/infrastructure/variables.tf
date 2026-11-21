@@ -21,3 +21,9 @@ variable "bucket_name" {
   description = "Nombre del bucket S3 para imágenes"
   default     = "musicshare-instrument-images"
 }
+
+variable "frontend_bucket_name" {
+  type        = string
+  description = "Nombre del bucket S3 para alojar el frontend React"
+  default     = "musicshare-frontend"
+}

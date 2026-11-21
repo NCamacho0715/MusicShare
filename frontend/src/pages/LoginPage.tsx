@@ -18,9 +18,9 @@ const DEMO_ACCOUNTS: Array<{
   label: string;
   fallbackEmail: string;
 }> = [
-  { role: 'musician', label: 'Músico', fallbackEmail: 'mateo.rios@musicshare.org' },
-  { role: 'owner', label: 'Propietario', fallbackEmail: 'clara.mendoza@musicshare.org' },
-  { role: 'admin', label: 'Academia', fallbackEmail: 'admin@musicshare.org' },
+  { role: 'musician', label: 'Músico', fallbackEmail: 'ana.gomez@musicshare.org' },
+  { role: 'owner', label: 'Propietario', fallbackEmail: 'contacto@filarmonicabogota.com' },
+  { role: 'admin', label: 'Academia', fallbackEmail: 'admin@musicshare.local' },
 ];
 
 export function LoginPage() {

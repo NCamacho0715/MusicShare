@@ -339,6 +339,65 @@ resource "aws_api_gateway_integration" "delete_prestamos_id_int" {
   uri                     = var.lambda_functions["prestamos_eliminar"].invoke_arn
 }
 
+# --- CORS para cada recurso ---
+locals {
+  cors_resources = {
+    usuarios            = aws_api_gateway_resource.usuarios.id
+    usuarios_id         = aws_api_gateway_resource.usuarios_id.id
+    instrumentos        = aws_api_gateway_resource.instrumentos.id
+    instrumentos_id     = aws_api_gateway_resource.instrumentos_id.id
+    instrumentos_imagen = aws_api_gateway_resource.instrumentos_imagen.id
+    prestamos           = aws_api_gateway_resource.prestamos.id
+    prestamos_id        = aws_api_gateway_resource.prestamos_id.id
+  }
+}
+
+resource "aws_api_gateway_method" "options" {
+  for_each      = local.cors_resources
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = each.value
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "options_int" {
+  for_each    = local.cors_resources
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = each.value
+  http_method = aws_api_gateway_method.options[each.key].http_method
+  type        = "MOCK"
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "options_200" {
+  for_each    = local.cors_resources
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = each.value
+  http_method = aws_api_gateway_method.options[each.key].http_method
+  status_code = "200"
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options_int_resp" {
+  for_each    = local.cors_resources
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = each.value
+  http_method = aws_api_gateway_method.options[each.key].http_method
+  status_code = aws_api_gateway_method_response.options_200[each.key].status_code
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-User-Id,X-User-Role,X-User-Name,X-User-Email,Authorization'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,PUT,DELETE,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+  depends_on = [aws_api_gateway_integration.options_int]
+}
+
 # Permissions for API Gateway to call Lambdas
 resource "aws_lambda_permission" "api_gateway_permissions" {
   for_each      = var.lambda_functions
@@ -370,6 +429,7 @@ resource "aws_api_gateway_deployment" "deployment" {
     aws_api_gateway_integration.get_prestamos_id_int,
     aws_api_gateway_integration.put_prestamos_id_int,
     aws_api_gateway_integration.delete_prestamos_id_int,
+    aws_api_gateway_integration_response.options_int_resp,
   ]
 
   lifecycle {
@@ -392,5 +452,5 @@ output "stage_name" {
 }
 
 output "invoke_url" {
-  value = aws_api_gateway_stage.stage.invoke_url
+  value = "http://localhost:4566/restapis/${aws_api_gateway_rest_api.api.id}/${aws_api_gateway_stage.stage.stage_name}/_user_request_"
 }
