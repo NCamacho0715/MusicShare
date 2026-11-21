@@ -1,0 +1,38 @@
+name: Backend CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  cd-validate:
+    name: Validation & Deployment Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+
+      - name: Install dependencies & package Lambdas
+        run: |
+          pip install -e "./backend[dev]"
+          python backend/scripts/package_lambdas.py
+
+      - name: Terraform Init & Plan (Production dry-run)
+        env:
+          AWS_REGION: us-east-1
+        run: |
+          cd backend/infrastructure
+          terraform init -input=false
+          terraform plan -var-file="environments/production.tfvars" -input=false
