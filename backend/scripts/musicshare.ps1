@@ -184,6 +184,25 @@ function Apply-Infra {
         Write-Host "Terraform Apply..."
         terraform apply -input=false tfplan
         if ($LASTEXITCODE -ne 0) { throw "terraform apply falló" }
+
+        # Sincronizar endpoint de API Gateway al archivo .env del frontend
+        $apiId = (terraform output -raw api_id 2>$null)
+        $invokeUrl = (terraform output -raw api_gateway_invoke_url 2>$null)
+        if (-not $invokeUrl -and $apiId) {
+            $invokeUrl = "http://localhost:4566/restapis/$apiId/local/_user_request_"
+        }
+        if ($invokeUrl) {
+            $invokeUrl = $invokeUrl.Trim()
+            $frontEnv = Join-Path $RootDir "frontend\.env"
+            $envLines = @(
+                "# Generado automáticamente por MusicShare",
+                "VITE_USE_MOCKS=false",
+                "VITE_API_BASE_URL=$invokeUrl",
+                "VITE_S3_IMAGES_BASE_URL=http://localhost:4566/musicshare-instrument-images"
+            )
+            [System.IO.File]::WriteAllLines($frontEnv, $envLines, [System.Text.UTF8Encoding]::new($false))
+            Write-Success "Frontend sincronizado con API Gateway en $frontEnv"
+        }
     }
     finally {
         Pop-Location

@@ -1,6 +1,6 @@
 import uuid
 from typing import Any, Dict, Optional
-from shared.dates import now_iso
+from shared.dates import now_iso, parse_iso
 from shared.errors import BadRequestError, ConflictError, NotFoundError
 from shared.repositories.instrumentos_repository import InstrumentosRepository
 from shared.repositories.prestamos_repository import PrestamosRepository
@@ -30,6 +30,10 @@ class PrestamosService:
         self.sqs_service = sqs_service or SQSService()
 
     def create_prestamo(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Validate date range
+        if parse_iso(data["fecha_vencimiento"]) < parse_iso(data["fecha_inicio"]):
+            raise BadRequestError("La fecha de vencimiento debe ser igual o posterior a la fecha de inicio")
+
         # Validate solicitante exists
         solicitante = self.usuarios_repo.get_by_id(data["solicitante_id"])
         if not solicitante:
@@ -74,7 +78,12 @@ class PrestamosService:
         instrumento_id = prestamo["instrumento_id"]
 
         if nuevo_estado == "activo":
-            # Instrument must become prestado
+            # Verify instrument is still disponible before marking prestado
+            instrumento = self.instrumentos_repo.get_by_id(instrumento_id)
+            if not instrumento:
+                raise NotFoundError(f"El instrumento con id {instrumento_id} no existe")
+            if instrumento.get("estado") != "disponible":
+                raise ConflictError(f"El instrumento no está disponible (estado actual: {instrumento.get('estado')})")
             self.instrumentos_repo.update(instrumento_id, {"estado": "prestado"})
         elif nuevo_estado == "devuelto":
             # Instrument returns to disponible
@@ -82,12 +91,16 @@ class PrestamosService:
                 updates["fecha_devolucion"] = now_iso()
             self.instrumentos_repo.update(instrumento_id, {"estado": "disponible"})
         elif nuevo_estado == "dañado":
+            if not updates.get("fecha_devolucion"):
+                updates["fecha_devolucion"] = now_iso()
+            observaciones = updates.get("observaciones") or prestamo.get("observaciones") or ""
             # Send SQS message to trigger maintenance workflow
             event_payload = {
                 "event_id": f"evt-{uuid.uuid4()}",
                 "prestamo_id": prestamo_id,
                 "instrumento_id": instrumento_id,
                 "usuario_id": prestamo["solicitante_id"],
+                "observaciones": observaciones,
                 "tipo_evento": "instrumento_daniado"
             }
             self.sqs_service.send_damage_event(event_payload)

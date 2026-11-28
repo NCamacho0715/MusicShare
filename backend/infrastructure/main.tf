@@ -4,9 +4,10 @@ module "dynamodb" {
 }
 
 module "s3" {
-  source      = "./modules/s3"
-  bucket_name = var.bucket_name
-  environment = var.environment
+  source               = "./modules/s3"
+  bucket_name          = var.bucket_name
+  frontend_bucket_name = var.frontend_bucket_name
+  environment          = var.environment
 }
 
 module "sqs" {
@@ -23,7 +24,8 @@ module "lambda" {
   source                   = "./modules/lambda"
   lambda_role_arn          = aws_iam_role.lambda_exec_role.arn
   dist_path                = "${path.module}/../dist/lambdas"
-  aws_endpoint_url         = var.aws_endpoint_url
+  aws_endpoint_url         = var.lambda_aws_endpoint_url
+  public_s3_endpoint_url   = var.public_s3_endpoint_url
   environment              = var.environment
   usuarios_table_name      = module.dynamodb.usuarios_table_name
   instrumentos_table_name  = module.dynamodb.instrumentos_table_name

@@ -5,6 +5,7 @@ import type {
   AuthSession,
   CreateInstrumentInput,
   CreateLoanInput,
+  CreateUserInput,
   Instrument,
   InstrumentFilters,
   Loan,
@@ -13,6 +14,7 @@ import type {
   RegisterInput,
   ReturnLoanInput,
   UpdateInstrumentInput,
+  UpdateUserInput,
   UploadedImageResult,
   User,
 } from '../types/models';
@@ -110,6 +112,104 @@ export const mockAdapter: MusicShareService = {
     return found;
   },
 
+  async createUser(input: CreateUserInput): Promise<User> {
+    const db = loadMockDatabase();
+    const normalizedEmail = input.email.trim().toLowerCase();
+    if (db.users.some((u) => u.email.toLowerCase() === normalizedEmail)) {
+      throw new ApiError({
+        status: 409,
+        message: 'Ya existe un usuario registrado con este correo.',
+      });
+    }
+
+    const firstName = input.firstName.trim();
+    const lastName = input.lastName.trim();
+    const created: User = {
+      id: generateId('usr'),
+      name: `${firstName} ${lastName}`.trim(),
+      firstName,
+      lastName,
+      email: normalizedEmail,
+      role: input.role,
+      phone: input.phone?.trim() || undefined,
+      status: input.status ?? 'activo',
+      createdAt: new Date().toISOString(),
+    };
+    db.users.push(created);
+    db.credentials[normalizedEmail] = DEMO_USER_PASSWORD;
+    saveMockDatabase(db);
+    return created;
+  },
+
+  async updateUser(id: string, input: UpdateUserInput): Promise<User> {
+    const db = loadMockDatabase();
+    const index = db.users.findIndex((u) => u.id === id);
+    if (index === -1) {
+      throw new ApiError({ status: 404, message: 'Usuario no encontrado' });
+    }
+
+    const existing = db.users[index];
+    const nextEmail = input.email ? input.email.trim().toLowerCase() : existing.email;
+    if (
+      nextEmail !== existing.email.toLowerCase() &&
+      db.users.some((u) => u.id !== id && u.email.toLowerCase() === nextEmail)
+    ) {
+      throw new ApiError({
+        status: 409,
+        message: 'Este correo ya está en uso por otro usuario.',
+      });
+    }
+
+    const firstName =
+      input.firstName !== undefined
+        ? input.firstName.trim()
+        : existing.firstName ?? existing.name.split(/\s+/)[0] ?? '';
+    const lastName =
+      input.lastName !== undefined
+        ? input.lastName.trim()
+        : existing.lastName ?? existing.name.split(/\s+/).slice(1).join(' ');
+
+    const updated: User = {
+      ...existing,
+      firstName,
+      lastName,
+      name: `${firstName} ${lastName}`.trim() || existing.name,
+      email: nextEmail,
+      role: input.role ?? existing.role,
+      phone: input.phone !== undefined ? input.phone.trim() || undefined : existing.phone,
+      status: input.status ?? existing.status ?? 'activo',
+    };
+
+    db.users[index] = updated;
+    saveMockDatabase(db);
+    const active = getActiveUserSession();
+    if (active && active.id === updated.id) {
+      setActiveUserSession(updated);
+    }
+    return updated;
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    const db = loadMockDatabase();
+    const existing = db.users.find((u) => u.id === id);
+    if (!existing) {
+      throw new ApiError({ status: 404, message: 'Usuario no encontrado' });
+    }
+    const hasActiveLoan = db.loans.some(
+      (l) =>
+        (l.status === 'activo' || l.status === 'vencido') &&
+        (l.borrowerId === id || l.ownerId === id),
+    );
+    if (hasActiveLoan) {
+      throw new ApiError({
+        status: 409,
+        message: 'No puedes eliminar un usuario con préstamos activos.',
+      });
+    }
+    db.users = db.users.filter((u) => u.id !== id);
+    saveMockDatabase(db);
+  },
+
   async listInstruments(filters?: InstrumentFilters): Promise<Instrument[]> {
     const db = loadMockDatabase();
     const query = filters?.q?.trim().toLowerCase() ?? '';
@@ -129,7 +229,7 @@ export const mockAdapter: MusicShareService = {
           return false;
         }
         if (query) {
-          const haystack = `${inst.name} ${inst.brand ?? ''} ${inst.description} ${inst.ownerName ?? ''} ${inst.location ?? ''}`.toLowerCase();
+          const haystack = `${inst.name} ${inst.brand ?? ''} ${inst.model ?? ''} ${inst.description} ${inst.ownerName ?? ''} ${inst.location ?? ''}`.toLowerCase();
           if (!haystack.includes(query)) return false;
         }
         return true;
@@ -156,6 +256,7 @@ export const mockAdapter: MusicShareService = {
       name: input.name.trim(),
       category: input.category,
       brand: input.brand?.trim() || undefined,
+      model: input.model?.trim() || undefined,
       description: input.description.trim(),
       condition: input.condition,
       status: 'disponible',
@@ -186,6 +287,7 @@ export const mockAdapter: MusicShareService = {
       ...input,
       name: input.name !== undefined ? input.name.trim() : existing.name,
       brand: input.brand !== undefined ? input.brand.trim() || undefined : existing.brand,
+      model: input.model !== undefined ? input.model.trim() || undefined : existing.model,
       description:
         input.description !== undefined ? input.description.trim() : existing.description,
       location:
@@ -242,6 +344,9 @@ export const mockAdapter: MusicShareService = {
     const db = loadMockDatabase();
     return db.loans
       .filter((loan) => {
+        if (filters?.instrumentId && loan.instrumentId !== filters.instrumentId) {
+          return false;
+        }
         if (filters?.borrowerId && loan.borrowerId !== filters.borrowerId) {
           return false;
         }
@@ -314,6 +419,46 @@ export const mockAdapter: MusicShareService = {
     return createdLoan;
   },
 
+  async approveLoan(id: string): Promise<Loan> {
+    const db = loadMockDatabase();
+    const index = db.loans.findIndex((l) => l.id === id);
+    if (index === -1) {
+      throw new ApiError({ status: 404, message: 'Préstamo no encontrado' });
+    }
+    const existing = db.loans[index];
+    const nowIso = new Date().toISOString();
+    const updated: Loan = { ...existing, status: 'activo', updatedAt: nowIso };
+    db.loans[index] = updated;
+
+    const instIndex = db.instruments.findIndex((i) => i.id === existing.instrumentId);
+    if (instIndex !== -1) {
+      db.instruments[instIndex] = {
+        ...db.instruments[instIndex],
+        status: 'prestado',
+        updatedAt: nowIso,
+      };
+    }
+    saveMockDatabase(db);
+    return updated;
+  },
+
+  async cancelLoan(id: string): Promise<Loan> {
+    const db = loadMockDatabase();
+    const index = db.loans.findIndex((l) => l.id === id);
+    if (index === -1) {
+      throw new ApiError({ status: 404, message: 'Préstamo no encontrado' });
+    }
+    const existing = db.loans[index];
+    const updated: Loan = {
+      ...existing,
+      status: 'cancelado',
+      updatedAt: new Date().toISOString(),
+    };
+    db.loans[index] = updated;
+    saveMockDatabase(db);
+    return updated;
+  },
+
   async returnLoan(id: string, input: ReturnLoanInput): Promise<Loan> {
     const db = loadMockDatabase();
     const loanIndex = db.loans.findIndex((l) => l.id === id);
@@ -322,7 +467,7 @@ export const mockAdapter: MusicShareService = {
     }
 
     const existingLoan = db.loans[loanIndex];
-    if (existingLoan.status !== 'activo') {
+    if (existingLoan.status !== 'activo' && existingLoan.status !== 'vencido') {
       throw new ApiError({
         status: 409,
         message: 'Este préstamo ya fue cerrado anteriormente.',

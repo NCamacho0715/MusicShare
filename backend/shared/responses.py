@@ -24,8 +24,8 @@ def success_response(status_code: int = 200, data: Any = None, message: Optional
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-User-Id,X-User-Role,Authorization",
-            "Access-Control-Allow-Methods": "OPTIONS,POST,GET,PUT,DELETE"
+            "Access-Control-Allow-Headers": "Content-Type,Accept,Authorization,X-User-Id,X-User-Role,X-User-Name,X-User-Email",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS"
         },
         "body": json.dumps(body, cls=DecimalEncoder)
     }
@@ -45,8 +45,8 @@ def error_response(status_code: int, error_code: str, message: str, details: Any
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-User-Id,X-User-Role,Authorization",
-            "Access-Control-Allow-Methods": "OPTIONS,POST,GET,PUT,DELETE"
+            "Access-Control-Allow-Headers": "Content-Type,Accept,Authorization,X-User-Id,X-User-Role,X-User-Name,X-User-Email",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS"
         },
         "body": json.dumps(body, cls=DecimalEncoder)
     }

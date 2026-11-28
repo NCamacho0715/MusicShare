@@ -32,12 +32,16 @@ const CONDITION_LABELS: Record<InstrumentCondition, string> = {
 };
 
 const LOAN_STATUS_LABELS: Record<LoanStatus, string> = {
+  solicitado: 'Solicitado',
   activo: 'Activo',
+  vencido: 'Vencido',
   devuelto: 'Devuelto',
   dañado: 'Devuelto con daño',
+  cancelado: 'Cancelado',
 };
 
 const ROLE_LABELS: Record<UserRole, string> = {
+  student: 'Estudiante',
   musician: 'Músico',
   owner: 'Propietario',
   admin: 'Administrador',
@@ -145,6 +149,7 @@ export function isLoanOverdue(
   loan: Pick<Loan, 'status' | 'dueDate'>,
   now: Date = new Date(),
 ): boolean {
+  if (loan.status === 'vencido') return true;
   if (loan.status !== 'activo') return false;
   return getDueDateStatus(loan.dueDate, now).isOverdue;
 }

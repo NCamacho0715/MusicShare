@@ -19,6 +19,12 @@ export const instrumentFormSchema = z.object({
     .max(60, 'La marca no puede superar 60 caracteres')
     .optional()
     .or(z.literal('')),
+  model: z
+    .string()
+    .trim()
+    .max(60, 'El modelo no puede superar 60 caracteres')
+    .optional()
+    .or(z.literal('')),
   condition: z.enum(INSTRUMENT_CONDITIONS, {
     errorMap: () => ({ message: 'Selecciona el estado de conservación' }),
   }),
@@ -36,15 +42,18 @@ export const instrumentFormSchema = z.object({
   imageUrl: z
     .string()
     .trim()
-    .min(1, 'Agrega una fotografía del instrumento')
     .refine(
       (value) =>
+        value === '' ||
         value.startsWith('./') ||
         value.startsWith('/') ||
         value.startsWith('data:image/') ||
+        value.startsWith('blob:') ||
         /^https?:\/\//i.test(value),
       'La URL o imagen seleccionada no es válida',
-    ),
+    )
+    .optional()
+    .default(''),
   imageKey: z.string().trim().optional(),
 });
 
@@ -114,7 +123,7 @@ export const registerFormSchema = z
       .trim()
       .min(1, 'Ingresa tu correo electrónico')
       .email('Ingresa un correo electrónico válido'),
-    role: z.enum(['musician', 'owner', 'admin'], {
+    role: z.enum(['student', 'musician', 'owner', 'admin'], {
       errorMap: () => ({ message: 'Selecciona un tipo de perfil válido' }),
     }),
     phone: z
@@ -136,6 +145,36 @@ export const registerFormSchema = z
   });
 
 export type RegisterFormValues = z.infer<typeof registerFormSchema>;
+
+export const userCrudSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'Ingresa el nombre')
+    .max(100, 'El nombre no puede superar 100 caracteres'),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Ingresa el apellido')
+    .max(100, 'El apellido no puede superar 100 caracteres'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Ingresa el correo electrónico')
+    .email('Ingresa un correo electrónico válido'),
+  role: z.enum(['student', 'musician', 'owner', 'admin'], {
+    errorMap: () => ({ message: 'Selecciona un rol válido' }),
+  }),
+  phone: z
+    .string()
+    .trim()
+    .max(20, 'El teléfono no puede superar 20 caracteres')
+    .optional()
+    .or(z.literal('')),
+  status: z.enum(['activo', 'inactivo']).default('activo'),
+});
+
+export type UserCrudValues = z.infer<typeof userCrudSchema>;
 
 export function extractZodFieldErrors(error: z.ZodError): Record<string, string> {
   const fieldErrors: Record<string, string> = {};

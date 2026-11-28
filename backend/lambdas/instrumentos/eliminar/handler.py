@@ -1,6 +1,8 @@
 import logging
-from shared.errors import AppException, BadRequestError
+from shared.auth_headers import extract_auth_context, is_admin
+from shared.errors import AppException, BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from shared.repositories.instrumentos_repository import InstrumentosRepository
+from shared.repositories.prestamos_repository import PrestamosRepository
 from shared.services.s3_service import S3Service
 from shared.responses import error_response, success_response
 
@@ -16,9 +18,20 @@ def lambda_handler(event, context):
 
         repo = InstrumentosRepository()
         instrumento = repo.get_by_id(instrumento_id)
-        
+        if not instrumento:
+            raise NotFoundError(f"Instrumento con id {instrumento_id} no encontrado")
+
+        user_id, user_role = extract_auth_context(event)
+        if user_id and user_id != instrumento.get("propietario_id") and not is_admin(user_role):
+            raise ForbiddenError("Solo el propietario o un administrador puede eliminar este instrumento")
+
+        prestamos_repo = PrestamosRepository()
+        prestamos = prestamos_repo.list_all(instrumento_id=instrumento_id)
+        if any(p.get("estado") in ("activo", "vencido") for p in prestamos):
+            raise ConflictError("No puedes eliminar un instrumento que tiene un préstamo activo")
+
         # If instrument has an image key, delete from S3 as well
-        if instrumento and instrumento.get("imagen_key"):
+        if instrumento.get("imagen_key"):
             try:
                 s3_service = S3Service()
                 s3_service.delete_file(instrumento["imagen_key"])

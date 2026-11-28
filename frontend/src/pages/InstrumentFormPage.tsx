@@ -43,24 +43,28 @@ interface FormState {
   name: string;
   category: InstrumentCategory;
   brand: string;
+  model: string;
   location: string;
   condition: InstrumentCondition;
   status: InstrumentStatus;
   description: string;
   imageUrl: string;
   imageKey: string;
+  imageFile: File | null;
 }
 
 const INITIAL_FORM_STATE: FormState = {
   name: '',
   category: 'cuerdas',
   brand: '',
+  model: '',
   location: '',
   condition: 'bueno',
   status: 'disponible',
   description: '',
   imageUrl: '',
   imageKey: '',
+  imageFile: null,
 };
 
 function getStatusBadgeVariant(status: InstrumentStatus): BadgeVariant {
@@ -150,12 +154,14 @@ export function InstrumentFormPage() {
           name: inst.name,
           category: inst.category,
           brand: inst.brand ?? '',
+          model: inst.model ?? '',
           location: inst.location ?? '',
           condition: inst.condition,
           status: inst.status,
           description: inst.description,
           imageUrl: inst.imageUrl,
           imageKey: inst.imageKey ?? '',
+          imageFile: null,
         });
         setFieldErrors({});
         setSubmitError(null);
@@ -191,12 +197,13 @@ export function InstrumentFormPage() {
       ...prev,
       imageUrl: result.imageUrl,
       imageKey: result.imageKey ?? '',
+      imageFile: result.file ?? null,
     }));
     clearFieldError('imageUrl');
   };
 
   const handleImageClear = () => {
-    setForm((prev) => ({ ...prev, imageUrl: '', imageKey: '' }));
+    setForm((prev) => ({ ...prev, imageUrl: '', imageKey: '', imageFile: null }));
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -207,6 +214,7 @@ export function InstrumentFormPage() {
       name: form.name,
       category: form.category,
       brand: form.brand,
+      model: form.model,
       location: form.location,
       condition: form.condition,
       description: form.description,
@@ -226,16 +234,19 @@ export function InstrumentFormPage() {
     try {
       let saved: Instrument;
       if (isEditMode && id) {
+        const clearedExistingImage = form.imageUrl.trim() === '' && !form.imageFile;
         saved = await musicShareService.updateInstrument(id, {
           name: parsed.data.name,
           category: parsed.data.category,
           brand: parsed.data.brand || undefined,
+          model: parsed.data.model || undefined,
           location: parsed.data.location || undefined,
           condition: parsed.data.condition,
           status: form.status,
           description: parsed.data.description,
           imageUrl: parsed.data.imageUrl,
-          imageKey: parsed.data.imageKey,
+          imageKey: clearedExistingImage ? '' : parsed.data.imageKey || undefined,
+          imageFile: form.imageFile ?? undefined,
         });
         showToast(`Cambios guardados en "${saved.name}".`, 'success');
       } else {
@@ -243,11 +254,13 @@ export function InstrumentFormPage() {
           name: parsed.data.name,
           category: parsed.data.category,
           brand: parsed.data.brand || undefined,
+          model: parsed.data.model || undefined,
           location: parsed.data.location || undefined,
           condition: parsed.data.condition,
           description: parsed.data.description,
           imageUrl: parsed.data.imageUrl,
           imageKey: parsed.data.imageKey,
+          imageFile: form.imageFile ?? undefined,
         });
         showToast(`"${saved.name}" ya está publicado en el catálogo.`, 'success');
       }
@@ -466,7 +479,7 @@ export function InstrumentFormPage() {
                   htmlFor="inst-brand"
                   className="mb-1.5 block text-sm font-semibold text-dark-cocoa"
                 >
-                  Marca / Modelo{' '}
+                  Marca{' '}
                   <span className="font-normal text-ink-muted">(opcional)</span>
                 </label>
                 <input
@@ -477,7 +490,7 @@ export function InstrumentFormPage() {
                     setForm((prev) => ({ ...prev, brand: e.target.value }));
                     clearFieldError('brand');
                   }}
-                  placeholder="Ej. Yamaha FG800"
+                  placeholder="Ej. Yamaha"
                   disabled={submitting}
                   aria-invalid={Boolean(fieldErrors.brand)}
                   className={`input-editorial ${
@@ -487,6 +500,36 @@ export function InstrumentFormPage() {
                 {fieldErrors.brand && (
                   <p className="mt-1.5 text-xs font-medium text-danger-ink">
                     {fieldErrors.brand}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="inst-model"
+                  className="mb-1.5 block text-sm font-semibold text-dark-cocoa"
+                >
+                  Modelo{' '}
+                  <span className="font-normal text-ink-muted">(opcional)</span>
+                </label>
+                <input
+                  id="inst-model"
+                  type="text"
+                  value={form.model}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, model: e.target.value }));
+                    clearFieldError('model');
+                  }}
+                  placeholder="Ej. FG800"
+                  disabled={submitting}
+                  aria-invalid={Boolean(fieldErrors.model)}
+                  className={`input-editorial ${
+                    fieldErrors.model ? 'border-danger' : ''
+                  }`}
+                />
+                {fieldErrors.model && (
+                  <p className="mt-1.5 text-xs font-medium text-danger-ink">
+                    {fieldErrors.model}
                   </p>
                 )}
               </div>
@@ -679,9 +722,9 @@ export function InstrumentFormPage() {
                   <h2 className="font-serif text-xl font-semibold leading-snug text-dark-cocoa">
                     {form.name.trim() || 'Nombre del instrumento'}
                   </h2>
-                  {form.brand.trim() && (
+                  {(form.brand.trim() || form.model.trim()) && (
                     <p className="mt-0.5 text-sm font-medium text-ink-muted">
-                      {form.brand.trim()}
+                      {[form.brand.trim(), form.model.trim()].filter(Boolean).join(' · ')}
                     </p>
                   )}
                 </div>

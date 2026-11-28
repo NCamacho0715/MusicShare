@@ -22,6 +22,7 @@ export interface UserContextValue {
   register: (input: RegisterInput) => Promise<User>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => void;
+  refreshUsers: () => Promise<User[]>;
   unreadAlertsCount: number;
   refreshAlertsCount: () => Promise<void>;
   isAlertDrawerOpen: boolean;
@@ -60,12 +61,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await countUnreadForUser(currentUser);
   }, [countUnreadForUser, currentUser]);
 
-  const refreshUsersList = useCallback(async (): Promise<User[]> => {
+  const refreshUsers = useCallback(async (): Promise<User[]> => {
     try {
       const fetched = await musicShareService.listUsers();
       setUsers(fetched);
+      const active = getActiveUserSession();
+      if (active) {
+        const synced = fetched.find((u) => u.id === active.id);
+        if (synced) {
+          setCurrentUser(synced);
+          setActiveUserSession(synced);
+        }
+      }
       return fetched;
-    } catch {
+    } catch (err) {
+      console.warn('Conexión con /usuarios no disponible en este momento:', err);
       return [];
     }
   }, []);
@@ -76,29 +86,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       setLoadingUsers(true);
       try {
-        const fetchedUsers = await refreshUsersList();
+        const fetchedUsers = await musicShareService.listUsers();
         if (!active) return;
+        setUsers(fetchedUsers);
 
         const stored = getActiveUserSession();
-        if (!stored) {
-          setCurrentUser(null);
-          setUnreadAlertsCount(0);
-          return;
+        if (stored) {
+          const resolved = fetchedUsers.find((u) => u.id === stored.id) ?? null;
+          if (resolved) {
+            setCurrentUser(resolved);
+            setActiveUserSession(resolved, `simulated-token-${resolved.id}`);
+            await countUnreadForUser(resolved);
+          } else {
+            setCurrentUser(null);
+            setActiveUserSession(null, null);
+            setUnreadAlertsCount(0);
+          }
         }
-
-        const resolved =
-          fetchedUsers.find((u) => u.id === stored.id) ?? stored;
-        setCurrentUser(resolved);
-
-        try {
-          await musicShareService.runDueDateCheck();
-        } catch {
-          // Silencioso si el chequeo automático no responde
-        }
-
-        if (active) {
-          await countUnreadForUser(resolved);
-        }
+      } catch (err) {
+        console.warn('Inicialización de usuarios fallida:', err);
       } finally {
         if (active) {
           setLoadingUsers(false);
@@ -111,38 +117,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [countUnreadForUser, refreshUsersList]);
+  }, [countUnreadForUser]);
 
   const login = useCallback(
     async (input: LoginInput): Promise<User> => {
       const session = await musicShareService.login(input);
       setCurrentUser(session.user);
-      await refreshUsersList();
-      try {
-        await musicShareService.runDueDateCheck();
-      } catch {
-        // Silencioso
-      }
+      await refreshUsers();
       await countUnreadForUser(session.user);
       return session.user;
     },
-    [countUnreadForUser, refreshUsersList],
+    [countUnreadForUser, refreshUsers],
   );
 
   const register = useCallback(
     async (input: RegisterInput): Promise<User> => {
       const session = await musicShareService.register(input);
       setCurrentUser(session.user);
-      await refreshUsersList();
-      try {
-        await musicShareService.runDueDateCheck();
-      } catch {
-        // Silencioso
-      }
+      await refreshUsers();
       await countUnreadForUser(session.user);
       return session.user;
     },
-    [countUnreadForUser, refreshUsersList],
+    [countUnreadForUser, refreshUsers],
   );
 
   const logout = useCallback(async (): Promise<void> => {
@@ -157,7 +153,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const target = users.find((u) => u.id === userId);
       if (!target) return;
       setCurrentUser(target);
-      setActiveUserSession(target);
+      setActiveUserSession(target, `simulated-token-${target.id}`);
       void countUnreadForUser(target);
     },
     [users, countUnreadForUser],
@@ -177,6 +173,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         switchUser,
+        refreshUsers,
         unreadAlertsCount,
         refreshAlertsCount,
         isAlertDrawerOpen,

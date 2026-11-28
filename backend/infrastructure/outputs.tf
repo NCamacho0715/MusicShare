@@ -3,6 +3,11 @@ output "api_gateway_invoke_url" {
   value       = module.api_gateway.invoke_url
 }
 
+output "api_id" {
+  description = "ID del API Gateway"
+  value       = module.api_gateway.api_id
+}
+
 output "dynamodb_tables" {
   description = "Nombres de las tablas DynamoDB"
   value = {
@@ -15,6 +20,16 @@ output "dynamodb_tables" {
 output "s3_bucket" {
   description = "Bucket de imágenes"
   value       = module.s3.bucket_name
+}
+
+output "frontend_s3_bucket" {
+  description = "Nombre del bucket S3 para alojar el Frontend"
+  value       = module.s3.frontend_bucket_name
+}
+
+output "frontend_s3_url" {
+  description = "URL para acceder al Frontend alojado en S3"
+  value       = module.s3.frontend_website_url
 }
 
 output "sqs_queue_url" {

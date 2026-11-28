@@ -28,5 +28,5 @@ def test_mantenimiento_procesar_danio():
                 result = mantenimiento_handler(event, mock_context)
                 assert result["status"] == "success"
                 assert result["procesados"] == 1
-                mock_repo.update.assert_called_with("inst-1", {"estado": "en_mantenimiento"})
+                mock_repo.update.assert_called_with("inst-1", {"estado": "en_mantenimiento", "condicion": "dañado"})
                 mock_sns.publish_notification.assert_called_once()

@@ -6,20 +6,25 @@ import { ReturnLoanModal } from '../components/loans/ReturnLoanModal';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
+import { useToast } from '../context/ToastContext';
 import { useUser } from '../context/UserContext';
-import { musicShareService } from '../services';
+import { ApiError, musicShareService } from '../services';
 import type { Loan } from '../types/models';
 import { isLoanOverdue } from '../utils/formatters';
 
 type LoansTab = 'active' | 'history' | 'lent';
 
+function isOngoingLoanStatus(status: Loan['status']): boolean {
+  return status === 'activo' || status === 'vencido' || status === 'solicitado';
+}
+
 function sortActiveFirst(loans: Loan[]): Loan[] {
   return [...loans].sort((a, b) => {
-    const aActive = a.status === 'activo' ? 0 : 1;
-    const bActive = b.status === 'activo' ? 0 : 1;
+    const aActive = isOngoingLoanStatus(a.status) ? 0 : 1;
+    const bActive = isOngoingLoanStatus(b.status) ? 0 : 1;
     if (aActive !== bActive) return aActive - bActive;
 
-    if (a.status === 'activo' && b.status === 'activo') {
+    if (isOngoingLoanStatus(a.status) && isOngoingLoanStatus(b.status)) {
       const aOverdue = isLoanOverdue(a) ? 0 : 1;
       const bOverdue = isLoanOverdue(b) ? 0 : 1;
       if (aOverdue !== bOverdue) return aOverdue - bOverdue;
@@ -32,10 +37,8 @@ function sortActiveFirst(loans: Loan[]): Loan[] {
 
 export function LoansPage() {
   const navigate = useNavigate();
-  const { currentUser, loadingUsers } = useUser();
-
-  const canSeeLentTab =
-    currentUser?.role === 'owner' || currentUser?.role === 'admin';
+  const { currentUser, loadingUsers, refreshAlertsCount } = useUser();
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<LoansTab>('active');
   const [myLoans, setMyLoans] = useState<Loan[]>([]);
@@ -43,6 +46,12 @@ export function LoansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<Loan | null>(null);
+  const [actionLoadingLoanId, setActionLoadingLoanId] = useState<string | null>(null);
+
+  const canSeeLentTab =
+    currentUser?.role === 'owner' ||
+    currentUser?.role === 'admin' ||
+    lentLoans.length > 0;
 
   useEffect(() => {
     if (!canSeeLentTab && activeTab === 'lent') {
@@ -60,19 +69,13 @@ export function LoansPage() {
         const allLoans = await musicShareService.listLoans();
         setMyLoans(allLoans.filter((loan) => loan.borrowerId === currentUser.id));
         setLentLoans(sortActiveFirst(allLoans));
-      } else if (currentUser.role === 'owner') {
+      } else {
         const [borrowed, owned] = await Promise.all([
           musicShareService.listLoans({ borrowerId: currentUser.id }),
           musicShareService.listLoans({ ownerId: currentUser.id }),
         ]);
         setMyLoans(borrowed);
         setLentLoans(sortActiveFirst(owned));
-      } else {
-        const borrowed = await musicShareService.listLoans({
-          borrowerId: currentUser.id,
-        });
-        setMyLoans(borrowed);
-        setLentLoans([]);
       }
     } catch (err) {
       setError(
@@ -85,6 +88,34 @@ export function LoansPage() {
     }
   }, [currentUser]);
 
+  const handleApproveLoan = async (loan: Loan) => {
+    setActionLoadingLoanId(loan.id);
+    try {
+      await musicShareService.approveLoan(loan.id);
+      showToast(`Préstamo de "${loan.instrumentName ?? 'instrumento'}" aprobado.`, 'success');
+      await Promise.all([loadLoans(), refreshAlertsCount()]);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo aprobar el préstamo.';
+      showToast(msg, 'error');
+    } finally {
+      setActionLoadingLoanId(null);
+    }
+  };
+
+  const handleCancelLoan = async (loan: Loan) => {
+    setActionLoadingLoanId(loan.id);
+    try {
+      await musicShareService.cancelLoan(loan.id);
+      showToast('Solicitud de préstamo cancelada.', 'info');
+      await Promise.all([loadLoans(), refreshAlertsCount()]);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo cancelar la solicitud.';
+      showToast(msg, 'error');
+    } finally {
+      setActionLoadingLoanId(null);
+    }
+  };
+
   useEffect(() => {
     if (!loadingUsers && currentUser) {
       void loadLoans();
@@ -92,12 +123,12 @@ export function LoansPage() {
   }, [loadingUsers, currentUser, loadLoans]);
 
   const activeLoans = useMemo(
-    () => sortActiveFirst(myLoans.filter((loan) => loan.status === 'activo')),
+    () => sortActiveFirst(myLoans.filter((loan) => isOngoingLoanStatus(loan.status))),
     [myLoans],
   );
 
   const historyLoans = useMemo(
-    () => sortActiveFirst(myLoans.filter((loan) => loan.status !== 'activo')),
+    () => sortActiveFirst(myLoans.filter((loan) => !isOngoingLoanStatus(loan.status))),
     [myLoans],
   );
 
@@ -250,9 +281,26 @@ export function LoansPage() {
                     : 'borrower'
                   : 'owner'
               }
+              actionLoading={actionLoadingLoanId === loan.id}
               onReturn={
-                loan.status === 'activo'
+                loan.status === 'activo' || loan.status === 'vencido'
                   ? (target) => setSelectedLoanForReturn(target)
+                  : undefined
+              }
+              onApprove={
+                loan.status === 'solicitado' &&
+                currentUser &&
+                (currentUser.role === 'admin' || loan.ownerId === currentUser.id)
+                  ? (target) => void handleApproveLoan(target)
+                  : undefined
+              }
+              onCancel={
+                loan.status === 'solicitado' &&
+                currentUser &&
+                (currentUser.role === 'admin' ||
+                  loan.borrowerId === currentUser.id ||
+                  loan.ownerId === currentUser.id)
+                  ? (target) => void handleCancelLoan(target)
                   : undefined
               }
             />

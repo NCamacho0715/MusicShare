@@ -4,6 +4,7 @@ import type {
   AuthSession,
   CreateInstrumentInput,
   CreateLoanInput,
+  CreateUserInput,
   Instrument,
   InstrumentFilters,
   Loan,
@@ -12,6 +13,7 @@ import type {
   RegisterInput,
   ReturnLoanInput,
   UpdateInstrumentInput,
+  UpdateUserInput,
   UploadedImageResult,
   User,
 } from './models';
@@ -45,9 +47,12 @@ export interface MusicShareService {
   register(input: RegisterInput): Promise<AuthSession>;
   logout(): Promise<void>;
 
-  // Usuarios (Mock Switcher / Consulta)
+  // Usuarios (CRUD + Switcher)
   listUsers(): Promise<User[]>;
   getUser(id: string): Promise<User>;
+  createUser(input: CreateUserInput): Promise<User>;
+  updateUser(id: string, input: UpdateUserInput): Promise<User>;
+  deleteUser(id: string): Promise<void>;
 
   // Instrumentos
   listInstruments(filters?: InstrumentFilters): Promise<Instrument[]>;
@@ -61,6 +66,8 @@ export interface MusicShareService {
   listLoans(filters?: LoanFilters): Promise<Loan[]>;
   getLoan(id: string): Promise<Loan>;
   requestLoan(input: CreateLoanInput): Promise<Loan>;
+  approveLoan(id: string): Promise<Loan>;
+  cancelLoan(id: string): Promise<Loan>;
   returnLoan(id: string, input: ReturnLoanInput): Promise<Loan>;
   deleteLoan(id: string): Promise<void>;
 

@@ -61,9 +61,9 @@ export function InstrumentCard({ instrument }: InstrumentCardProps) {
           </Link>
         </h3>
 
-        {instrument.brand && (
+        {(instrument.brand || instrument.model) && (
           <p className="mt-0.5 text-sm font-medium text-ink-muted">
-            {instrument.brand}
+            {[instrument.brand, instrument.model].filter(Boolean).join(' · ')}
           </p>
         )}
 

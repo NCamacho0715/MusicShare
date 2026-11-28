@@ -53,6 +53,24 @@ apply_infra() {
   terraform validate
   terraform plan -var-file="environments/local.tfvars" -out=tfplan -input=false
   terraform apply -input=false tfplan
+  
+  # Sincronizar endpoint de API Gateway con frontend/.env
+  ROOT_DIR="$(dirname "$BACKEND_DIR")"
+  INVOKE_URL="$(terraform output -raw api_gateway_invoke_url 2>/dev/null || echo "")"
+  API_ID="$(terraform output -raw api_id 2>/dev/null || echo "")"
+  if [ -z "$INVOKE_URL" ] && [ -n "$API_ID" ]; then
+    INVOKE_URL="http://localhost:4566/restapis/$API_ID/local/_user_request_"
+  fi
+  if [ -n "$INVOKE_URL" ]; then
+    cat <<EOF > "$ROOT_DIR/frontend/.env"
+# Generado automáticamente por MusicShare
+VITE_USE_MOCKS=false
+VITE_API_BASE_URL=$INVOKE_URL
+VITE_S3_IMAGES_BASE_URL=http://localhost:4566/musicshare-instrument-images
+EOF
+    echo -e "\033[1;32m[OK] Frontend sincronizado con API Gateway: $INVOKE_URL\033[0m"
+  fi
+
   cd "$BACKEND_DIR"
 }
 

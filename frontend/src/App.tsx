@@ -17,6 +17,7 @@ import { InstrumentFormPage } from './pages/InstrumentFormPage';
 import { LoansPage } from './pages/LoansPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { UsersPage } from './pages/UsersPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -28,18 +29,23 @@ function ScrollToTop() {
   return null;
 }
 
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4 text-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solar-yellow border-t-dark-cocoa" />
+        <p className="font-serif text-lg font-medium text-dark-cocoa">Cargando MusicShare...</p>
+      </div>
+    </div>
+  );
+}
+
 function RequireAuth() {
   const { isAuthenticated, loadingUsers } = useUser();
   const location = useLocation();
 
   if (loadingUsers) {
-    return (
-      <div
-        className="min-h-screen bg-canvas"
-        aria-busy="true"
-        aria-label="Cargando sesión"
-      />
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -53,13 +59,7 @@ function PublicOnlyRoute() {
   const { isAuthenticated, loadingUsers } = useUser();
 
   if (loadingUsers) {
-    return (
-      <div
-        className="min-h-screen bg-canvas"
-        aria-busy="true"
-        aria-label="Cargando sesión"
-      />
-    );
+    return <LoadingScreen />;
   }
 
   if (isAuthenticated) {
@@ -89,6 +89,7 @@ export default function App() {
                 <Route path="/instruments/:id/edit" element={<InstrumentFormPage />} />
                 <Route path="/loans" element={<LoansPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
+                <Route path="/users" element={<UsersPage />} />
               </Route>
             </Route>
 
