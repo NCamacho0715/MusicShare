@@ -10,10 +10,12 @@ class EstadoInstrumento(str, Enum):
 
 class InstrumentoCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=100)
-    marca: str = Field(..., min_length=1, max_length=100)
-    modelo: str = Field(..., min_length=1, max_length=100)
+    marca: str = Field("Estándar", min_length=1, max_length=100)
+    modelo: str = Field("Estándar", min_length=1, max_length=100)
     categoria: str = Field(..., min_length=1, max_length=50)
     descripcion: Optional[str] = Field(None, max_length=1000)
+    ubicacion: Optional[str] = Field(None, max_length=120)
+    condicion: Optional[str] = Field("bueno", max_length=30)
     estado: EstadoInstrumento = EstadoInstrumento.DISPONIBLE
     propietario_id: str = Field(..., min_length=1)
     imagen_key: Optional[str] = None
@@ -24,6 +26,8 @@ class InstrumentoUpdate(BaseModel):
     modelo: Optional[str] = Field(None, min_length=1, max_length=100)
     categoria: Optional[str] = Field(None, min_length=1, max_length=50)
     descripcion: Optional[str] = Field(None, max_length=1000)
+    ubicacion: Optional[str] = Field(None, max_length=120)
+    condicion: Optional[str] = Field(None, max_length=30)
     estado: Optional[EstadoInstrumento] = None
     propietario_id: Optional[str] = None
     imagen_key: Optional[str] = None
@@ -35,6 +39,8 @@ class InstrumentoModel(BaseModel):
     modelo: str
     categoria: str
     descripcion: Optional[str] = None
+    ubicacion: Optional[str] = None
+    condicion: Optional[str] = "bueno"
     estado: str
     propietario_id: str
     imagen_key: Optional[str] = None

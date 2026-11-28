@@ -17,6 +17,7 @@ import { InstrumentFormPage } from './pages/InstrumentFormPage';
 import { LoansPage } from './pages/LoansPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { UsersPage } from './pages/UsersPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -88,6 +89,7 @@ export default function App() {
                 <Route path="/instruments/:id/edit" element={<InstrumentFormPage />} />
                 <Route path="/loans" element={<LoansPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
+                <Route path="/users" element={<UsersPage />} />
               </Route>
             </Route>
 

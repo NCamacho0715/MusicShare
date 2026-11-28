@@ -1,6 +1,7 @@
 import json
 import logging
 from pydantic import ValidationError as PydanticValidationError
+from shared.auth_headers import extract_auth_context
 from shared.errors import AppException
 from shared.models.instrumento import InstrumentoCreate
 from shared.repositories.instrumentos_repository import InstrumentosRepository
@@ -15,7 +16,11 @@ def lambda_handler(event, context):
         if isinstance(raw_body, str):
             body = json.loads(raw_body)
         else:
-            body = raw_body
+            body = dict(raw_body)
+
+        user_id, _ = extract_auth_context(event)
+        if not body.get("propietario_id") and user_id:
+            body["propietario_id"] = user_id
 
         instrumento_in = InstrumentoCreate(**body)
         repo = InstrumentosRepository()

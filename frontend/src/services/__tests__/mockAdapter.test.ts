@@ -23,9 +23,38 @@ describe('mockAdapter & httpClient headers', () => {
 
     const headers = buildMockAuthHeaders();
     expect(headers['X-User-Id']).toBe(musician.id);
-    expect(headers['X-User-Role']).toBe('musician');
+    expect(headers['X-User-Role']).toBe('musico');
     expect(headers['X-User-Name']).toBe(encodeURIComponent(musician.name));
     expect(headers['X-User-Email']).toBe(musician.email);
+  });
+
+  it('supports user CRUD and blocks deleting users with active loans', async () => {
+    const created = await mockAdapter.createUser({
+      firstName: 'Laura',
+      lastName: 'Martínez',
+      email: 'laura.martinez@musicshare.org',
+      role: 'student',
+      phone: '+573001112233',
+    });
+    expect(created.name).toBe('Laura Martínez');
+    expect(created.role).toBe('student');
+
+    const updated = await mockAdapter.updateUser(created.id, {
+      firstName: 'Laura Sofía',
+      role: 'owner',
+      status: 'inactivo',
+    });
+    expect(updated.name).toBe('Laura Sofía Martínez');
+    expect(updated.role).toBe('owner');
+    expect(updated.status).toBe('inactivo');
+
+    await mockAdapter.deleteUser(created.id);
+    await expect(mockAdapter.getUser(created.id)).rejects.toMatchObject({ status: 404 });
+
+    // usr-musician-1 has active loans in seed data
+    await expect(mockAdapter.deleteUser('usr-musician-1')).rejects.toMatchObject({
+      status: 409,
+    });
   });
 
   it('supports full instrument CRUD and blocks deleting an instrument with active loan', async () => {

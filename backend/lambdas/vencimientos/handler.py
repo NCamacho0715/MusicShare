@@ -1,6 +1,8 @@
 import logging
 from shared.dates import days_until, is_past, now_iso
+from shared.repositories.instrumentos_repository import InstrumentosRepository
 from shared.repositories.prestamos_repository import PrestamosRepository
+from shared.repositories.usuarios_repository import UsuariosRepository
 from shared.services.sns_service import SNSService
 
 logger = logging.getLogger()
@@ -31,6 +33,21 @@ def lambda_handler(event, context):
         if not fecha_vencimiento:
             continue
 
+        instrumento_nombre = None
+        solicitante_correo = None
+        try:
+            inst = InstrumentosRepository().get_by_id(prestamo["instrumento_id"])
+            if inst:
+                instrumento_nombre = inst.get("nombre")
+        except Exception:
+            pass
+        try:
+            usr = UsuariosRepository().get_by_id(prestamo["solicitante_id"])
+            if usr:
+                solicitante_correo = usr.get("correo")
+        except Exception:
+            pass
+
         # Case 1: Loan is expired (fecha_vencimiento < now)
         if is_past(fecha_vencimiento):
             logger.info(f"Préstamo {prestamo_id} vencido (vencimiento: {fecha_vencimiento})")
@@ -44,7 +61,9 @@ def lambda_handler(event, context):
                 message_data={
                     "prestamo_id": prestamo_id,
                     "instrumento_id": prestamo["instrumento_id"],
+                    "instrumento_nombre": instrumento_nombre,
                     "solicitante_id": prestamo["solicitante_id"],
+                    "solicitante_correo": solicitante_correo,
                     "fecha_vencimiento": fecha_vencimiento,
                     "mensaje": f"El préstamo {prestamo_id} ha vencido el {fecha_vencimiento}."
                 },
@@ -52,8 +71,8 @@ def lambda_handler(event, context):
             )
             total_vencidos += 1
 
-        # Case 2: Loan is due soon (within next 2 days) and not already notified
-        elif days_until(fecha_vencimiento) <= 2.0 and not ya_notificado:
+        # Case 2: Loan is due soon (within next 3 days) and not already notified
+        elif days_until(fecha_vencimiento) <= 3.0 and not ya_notificado:
             logger.info(f"Préstamo {prestamo_id} próximo a vencer (en {days_until(fecha_vencimiento):.1f} días)")
             prestamos_repo.update(prestamo_id, {
                 "notificacion_vencimiento_enviada": True
@@ -64,7 +83,9 @@ def lambda_handler(event, context):
                 message_data={
                     "prestamo_id": prestamo_id,
                     "instrumento_id": prestamo["instrumento_id"],
+                    "instrumento_nombre": instrumento_nombre,
                     "solicitante_id": prestamo["solicitante_id"],
+                    "solicitante_correo": solicitante_correo,
                     "fecha_vencimiento": fecha_vencimiento,
                     "mensaje": f"El préstamo {prestamo_id} vencerá el {fecha_vencimiento}."
                 },

@@ -15,23 +15,35 @@ export interface LoanCardProps {
   loan: Loan;
   /** Contexto visual para mostrar propietario, prestatario o ambos */
   counterpartyRole?: 'owner' | 'borrower' | 'both';
-  /** Acción al pulsar "Registrar devolución" en préstamos activos */
+  /** Acción al pulsar "Registrar devolución" en préstamos activos o vencidos */
   onReturn?: (loan: Loan) => void;
+  /** Acción al aprobar un préstamo solicitado */
+  onApprove?: (loan: Loan) => void;
+  /** Acción al cancelar un préstamo solicitado */
+  onCancel?: (loan: Loan) => void;
+  actionLoading?: boolean;
 }
 
 export function LoanCard({
   loan,
   counterpartyRole = 'owner',
   onReturn,
+  onApprove,
+  onCancel,
+  actionLoading = false,
 }: LoanCardProps) {
-  const isActive = loan.status === 'activo';
+  const isOngoing = loan.status === 'activo' || loan.status === 'vencido';
+  const isPending = loan.status === 'solicitado';
+  const isCancelled = loan.status === 'cancelado';
   const overdue = isLoanOverdue(loan);
-  const dueStatus = isActive ? getDueDateStatus(loan.dueDate) : null;
+  const dueStatus = isOngoing || isPending ? getDueDateStatus(loan.dueDate) : null;
   const statusLabel = getLoanStatusLabel(loan.status, overdue);
 
   const badgeVariant = (() => {
     if (loan.status === 'devuelto') return 'available' as const;
     if (loan.status === 'dañado') return 'maintenance' as const;
+    if (loan.status === 'cancelado') return 'neutral' as const;
+    if (loan.status === 'solicitado') return 'warning' as const;
     if (overdue) return 'overdue' as const;
     if (dueStatus?.isDueSoon) return 'warning' as const;
     return 'loaned' as const;
@@ -111,7 +123,7 @@ export function LoanCard({
             </div>
 
             <div className="flex items-center gap-2">
-              {isActive && dueStatus ? (
+              {(isOngoing || isPending) && dueStatus ? (
                 <>
                   {dueStatus.isOverdue ? (
                     <AlertTriangle
@@ -147,9 +159,11 @@ export function LoanCard({
                 <>
                   <Clock className="w-4 h-4 shrink-0 text-pool-blue-deep" aria-hidden="true" />
                   <div>
-                    <dt className="text-xs font-semibold text-ink-muted">Devuelto</dt>
+                    <dt className="text-xs font-semibold text-ink-muted">
+                      {isCancelled ? 'Cancelado' : 'Devuelto'}
+                    </dt>
                     <dd className="tabular-data font-semibold text-dark-cocoa">
-                      {formatDate(loan.returnedAt)}
+                      {formatDate(isCancelled ? loan.updatedAt : loan.returnedAt)}
                     </dd>
                   </div>
                 </>
@@ -167,11 +181,33 @@ export function LoanCard({
             </div>
           )}
 
-          {isActive && onReturn && (
+          {((isOngoing && onReturn) || (isPending && (onApprove || onCancel))) && (
             <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-              <Button variant="primary" size="md" onClick={() => onReturn(loan)}>
-                Registrar devolución
-              </Button>
+              {isPending && onCancel && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={actionLoading}
+                  onClick={() => onCancel(loan)}
+                >
+                  Cancelar solicitud
+                </Button>
+              )}
+              {isPending && onApprove && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={actionLoading}
+                  onClick={() => onApprove(loan)}
+                >
+                  Aprobar préstamo
+                </Button>
+              )}
+              {isOngoing && onReturn && (
+                <Button variant="primary" size="md" onClick={() => onReturn(loan)}>
+                  Registrar devolución
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -85,9 +85,13 @@ export function buildMockAuthHeaders(): Record<string, string> {
 
   if (user) {
     headers['X-User-Id'] = user.id;
-    const backendRole =
-      user.role === 'owner' ? 'propietario' : user.role === 'admin' ? 'administrador' : 'musico';
-    headers['X-User-Role'] = backendRole;
+    const roleMap: Record<string, string> = {
+      student: 'estudiante',
+      musician: 'musico',
+      owner: 'propietario',
+      admin: 'administrador',
+    };
+    headers['X-User-Role'] = roleMap[user.role] ?? 'musico';
     headers['X-User-Name'] = encodeURIComponent(user.name);
     headers['X-User-Email'] = user.email;
   }
@@ -150,7 +154,7 @@ export async function httpRequest<T>(
 
   let response: Response;
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 4000);
+  const timeoutId = setTimeout(() => timeoutController.abort(), 25000);
 
   try {
     response = await fetch(buildUrl(path, query), {

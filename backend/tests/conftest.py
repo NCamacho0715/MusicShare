@@ -1,6 +1,5 @@
 import os
 import sys
-import pytest
 
 # Ensure backend and shared modules are on sys.path
 backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

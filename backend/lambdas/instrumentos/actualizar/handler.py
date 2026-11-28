@@ -1,7 +1,8 @@
 import json
 import logging
 from pydantic import ValidationError as PydanticValidationError
-from shared.errors import AppException, BadRequestError
+from shared.auth_headers import extract_auth_context, is_admin
+from shared.errors import AppException, BadRequestError, ForbiddenError, NotFoundError
 from shared.models.instrumento import InstrumentoUpdate
 from shared.repositories.instrumentos_repository import InstrumentosRepository
 from shared.responses import error_response, success_response
@@ -23,9 +24,20 @@ def lambda_handler(event, context):
             body = raw_body
 
         instrumento_in = InstrumentoUpdate(**body)
-        updates = {k: v for k, v in instrumento_in.model_dump().items() if v is not None}
+        updates = {
+            k: v for k, v in instrumento_in.model_dump(exclude_unset=True).items()
+            if v is not None
+        }
 
         repo = InstrumentosRepository()
+        instrumento = repo.get_by_id(instrumento_id)
+        if not instrumento:
+            raise NotFoundError(f"Instrumento con id {instrumento_id} no encontrado")
+
+        user_id, user_role = extract_auth_context(event)
+        if user_id and user_id != instrumento.get("propietario_id") and not is_admin(user_role):
+            raise ForbiddenError("Solo el propietario o un administrador puede editar este instrumento")
+
         updated = repo.update(instrumento_id, updates)
         return success_response(200, data=updated, message="Instrumento actualizado exitosamente")
     except json.JSONDecodeError:

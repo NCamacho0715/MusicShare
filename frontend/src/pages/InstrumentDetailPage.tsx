@@ -81,8 +81,9 @@ export function InstrumentDetailPage() {
 
       if (data.status === 'prestado') {
         try {
-          const loans = await musicShareService.listLoans({ status: 'activo' });
-          const current = loans.find((loan) => loan.instrumentId === data.id) ?? null;
+          const loans = await musicShareService.listLoans({ instrumentId: data.id });
+          const current =
+            loans.find((loan) => loan.status === 'activo' || loan.status === 'vencido') ?? null;
           setActiveLoan(current);
         } catch {
           setActiveLoan(null);
@@ -218,9 +219,9 @@ export function InstrumentDetailPage() {
                 {instrument.name}
               </h1>
 
-              {instrument.brand && (
+              {(instrument.brand || instrument.model) && (
                 <p className="mt-1.5 text-base font-medium text-ink-muted">
-                  {instrument.brand}
+                  {[instrument.brand, instrument.model].filter(Boolean).join(' · ')}
                 </p>
               )}
             </div>

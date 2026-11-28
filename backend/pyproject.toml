@@ -40,3 +40,7 @@ filterwarnings = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = ["dist", "musicshare_backend.egg-info", ".pytest_cache"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

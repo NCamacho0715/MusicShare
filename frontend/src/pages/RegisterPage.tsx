@@ -13,9 +13,10 @@ import {
 } from '../utils/validators';
 
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string }> = [
+  { value: 'student', label: 'Estudiante' },
   { value: 'musician', label: 'Músico' },
   { value: 'owner', label: 'Propietario' },
-  { value: 'admin', label: 'Academia' },
+  { value: 'admin', label: 'Administrador' },
 ];
 
 export function RegisterPage() {
@@ -176,7 +177,7 @@ export function RegisterPage() {
           <div
             role="radiogroup"
             aria-labelledby="register-role-label"
-            className="grid grid-cols-3 gap-2"
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
           >
             {ROLE_OPTIONS.map((option) => {
               const selected = role === option.value;

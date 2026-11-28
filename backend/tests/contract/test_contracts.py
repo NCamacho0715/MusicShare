@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 from lambdas.usuarios.crear.handler import lambda_handler as crear_usuario
 from lambdas.usuarios.buscar.handler import lambda_handler as buscar_usuarios
 from lambdas.instrumentos.crear.handler import lambda_handler as crear_instrumento
-from lambdas.prestamos.crear.handler import lambda_handler as crear_prestamo
 
 def test_contract_crear_usuario_validation_error():
     event = {

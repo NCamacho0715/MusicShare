@@ -17,7 +17,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
-  const { users, login } = useUser();
+  const { users, loadingUsers, login } = useUser();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState(DEMO_USER_PASSWORD);
@@ -222,48 +222,58 @@ export function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            {users.map((u) => {
-              const initials = getUserInitials(u.name);
-              const isSelected = email.toLowerCase() === u.email.toLowerCase();
+            {loadingUsers ? (
+              <p className="rounded-[var(--radius-control)] border border-dark-cocoa/12 bg-surface-muted/50 px-3 py-2.5 text-xs text-ink-muted">
+                Consultando usuarios registrados en el backend...
+              </p>
+            ) : users.length === 0 ? (
+              <p className="rounded-[var(--radius-control)] border border-warning-ink/25 bg-warning-soft/45 px-3 py-2.5 text-xs text-warning-ink">
+                No se encontraron usuarios en DynamoDB o no hay conexión con API Gateway. Registra una cuenta nueva o ejecuta <code className="font-mono">.\musicshare.ps1 seed</code>.
+              </p>
+            ) : (
+              users.map((u) => {
+                const initials = getUserInitials(u.name);
+                const isSelected = email.toLowerCase() === u.email.toLowerCase();
 
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void quickLoginWithUser(u)}
-                  className={`flex items-center justify-between rounded-[var(--radius-control)] border p-2.5 text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-pool-blue-deep bg-pool-blue/20 ring-2 ring-pool-blue-deep/30'
-                      : 'border-dark-cocoa/12 bg-surface hover:border-dark-cocoa/30 hover:bg-surface-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span
-                      aria-hidden="true"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pool-blue font-sans text-xs font-bold text-dark-cocoa shadow-cocoa-sm"
-                    >
-                      {initials}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-sans text-xs font-semibold text-dark-cocoa">
-                        {u.name}
-                      </p>
-                      <p className="truncate font-mono text-[11px] text-ink-muted">
-                        {u.email}
-                      </p>
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => void quickLoginWithUser(u)}
+                    className={`flex items-center justify-between rounded-[var(--radius-control)] border p-2.5 text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-pool-blue-deep bg-pool-blue/20 ring-2 ring-pool-blue-deep/30'
+                        : 'border-dark-cocoa/12 bg-surface hover:border-dark-cocoa/30 hover:bg-surface-muted'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        aria-hidden="true"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pool-blue font-sans text-xs font-bold text-dark-cocoa shadow-cocoa-sm"
+                      >
+                        {initials}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-sans text-xs font-semibold text-dark-cocoa">
+                          {u.name}
+                        </p>
+                        <p className="truncate font-mono text-[11px] text-ink-muted">
+                          {u.email}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="rounded-full bg-dark-cocoa/8 px-2 py-0.5 font-sans text-[10px] font-semibold text-dark-cocoa">
-                      {getRoleLabel(u.role)}
-                    </span>
-                    <UserCheck className="h-4 w-4 text-pool-blue-deep opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="rounded-full bg-dark-cocoa/8 px-2 py-0.5 font-sans text-[10px] font-semibold text-dark-cocoa">
+                        {getRoleLabel(u.role)}
+                      </span>
+                      <UserCheck className="h-4 w-4 text-pool-blue-deep opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       </form>

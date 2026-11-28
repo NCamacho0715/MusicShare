@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
-from shared.models.usuario import UsuarioCreate, UsuarioUpdate, RolUsuario, EstadoUsuario
-from shared.models.instrumento import InstrumentoCreate, InstrumentoUpdate, EstadoInstrumento
-from shared.models.prestamo import PrestamoCreate, PrestamoUpdate, EstadoPrestamo
+from shared.models.usuario import UsuarioCreate, RolUsuario, EstadoUsuario
+from shared.models.instrumento import InstrumentoCreate, EstadoInstrumento
+from shared.models.prestamo import PrestamoCreate
 
 def test_usuario_create_valid():
     data = {

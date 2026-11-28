@@ -65,7 +65,8 @@ run_all_tests() {
   bash "$BACKEND_SCRIPT" test
   cd "$FRONTEND_DIR"
   npm run typecheck
-  write_success "Typecheck del Frontend aprobado"
+  npx vitest run
+  write_success "Pruebas y Typecheck del Frontend aprobados"
   cd "$ROOT_DIR"
 }
 

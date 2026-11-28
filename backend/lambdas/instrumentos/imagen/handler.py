@@ -1,6 +1,7 @@
 import json
 import logging
-from shared.errors import AppException, BadRequestError, NotFoundError
+from shared.auth_headers import extract_auth_context, is_admin
+from shared.errors import AppException, BadRequestError, ForbiddenError, NotFoundError
 from shared.repositories.instrumentos_repository import InstrumentosRepository
 from shared.services.s3_service import S3Service
 from shared.responses import error_response, success_response
@@ -21,15 +22,24 @@ def lambda_handler(event, context):
         else:
             body = raw_body
 
-        nombre_archivo = body.get("nombre_archivo") or "imagen.jpg"
+        nombre_archivo = body.get("nombre_archivo") or body.get("filename") or "imagen.jpg"
+        content_type = body.get("content_type") or body.get("contentType")
 
         repo = InstrumentosRepository()
         instrumento = repo.get_by_id(instrumento_id)
         if not instrumento:
             raise NotFoundError(f"Instrumento con id {instrumento_id} no encontrado")
 
+        user_id, user_role = extract_auth_context(event)
+        if user_id and user_id != instrumento.get("propietario_id") and not is_admin(user_role):
+            raise ForbiddenError("Solo el propietario o un administrador puede modificar la imagen de este instrumento")
+
         s3_service = S3Service()
-        presigned_data = s3_service.generate_upload_url(instrumento_id, nombre_archivo)
+        presigned_data = s3_service.generate_upload_url(
+            instrumento_id,
+            nombre_archivo,
+            content_type=content_type,
+        )
 
         # Update instrument record with image key
         repo.update(instrumento_id, {"imagen_key": presigned_data["key"]})

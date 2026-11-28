@@ -1,6 +1,7 @@
 import json
 import logging
 from shared.repositories.instrumentos_repository import InstrumentosRepository
+from shared.repositories.usuarios_repository import UsuariosRepository
 from shared.services.sns_service import SNSService
 
 logger = logging.getLogger()
@@ -30,6 +31,7 @@ def lambda_handler(event, context):
             instrumento_id = data.get("instrumento_id")
             prestamo_id = data.get("prestamo_id")
             event_id = data.get("event_id")
+            observaciones = data.get("observaciones") or ""
 
             if not instrumento_id:
                 logger.warning(f"Mensaje SQS sin instrumento_id: {data}")
@@ -43,10 +45,23 @@ def lambda_handler(event, context):
 
             # Idempotent state change
             if instrumento.get("estado") != "en_mantenimiento":
-                instrumentos_repo.update(instrumento_id, {"estado": "en_mantenimiento"})
+                instrumentos_repo.update(instrumento_id, {
+                    "estado": "en_mantenimiento",
+                    "condicion": "dañado",
+                })
                 logger.info(f"Instrumento {instrumento_id} marcado como 'en_mantenimiento'")
             else:
                 logger.info(f"Instrumento {instrumento_id} ya se encontraba 'en_mantenimiento' (idempotente)")
+
+            propietario_correo = None
+            propietario_id = instrumento.get("propietario_id")
+            if propietario_id:
+                try:
+                    propietario = UsuariosRepository().get_by_id(propietario_id)
+                    if propietario:
+                        propietario_correo = propietario.get("correo")
+                except Exception as e:
+                    logger.warning(f"No se pudo consultar propietario {propietario_id}: {str(e)}")
 
             # Publish notification to SNS
             notification_data = {
@@ -55,7 +70,9 @@ def lambda_handler(event, context):
                 "instrumento_id": instrumento_id,
                 "instrumento_nombre": instrumento.get("nombre"),
                 "instrumento_marca": instrumento.get("marca"),
-                "propietario_id": instrumento.get("propietario_id"),
+                "propietario_id": propietario_id,
+                "propietario_correo": propietario_correo,
+                "observaciones": observaciones,
                 "mensaje": f"El instrumento '{instrumento.get('nombre')}' ha sido reportado con daño y puesto en mantenimiento."
             }
             sns_service.publish_notification(

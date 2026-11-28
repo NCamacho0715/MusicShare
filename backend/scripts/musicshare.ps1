@@ -200,7 +200,7 @@ function Apply-Infra {
                 "VITE_API_BASE_URL=$invokeUrl",
                 "VITE_S3_IMAGES_BASE_URL=http://localhost:4566/musicshare-instrument-images"
             )
-            $envLines | Set-Content -Path $frontEnv -Force
+            [System.IO.File]::WriteAllLines($frontEnv, $envLines, [System.Text.UTF8Encoding]::new($false))
             Write-Success "Frontend sincronizado con API Gateway en $frontEnv"
         }
     }

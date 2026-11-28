@@ -1,12 +1,33 @@
-export type UserRole = 'musician' | 'owner' | 'admin';
+export type UserRole = 'student' | 'musician' | 'owner' | 'admin';
 
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   role: UserRole;
   phone?: string;
+  status?: 'activo' | 'inactivo';
   createdAt: string;
+}
+
+export interface CreateUserInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  status?: 'activo' | 'inactivo';
+}
+
+export interface UpdateUserInput {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: UserRole;
+  phone?: string;
+  status?: 'activo' | 'inactivo';
 }
 
 export interface LoginInput {
@@ -61,6 +82,7 @@ export interface Instrument {
   name: string;
   category: InstrumentCategory;
   brand?: string;
+  model?: string;
   description: string;
   condition: InstrumentCondition;
   status: InstrumentStatus;
@@ -73,7 +95,14 @@ export interface Instrument {
   updatedAt: string;
 }
 
-export const LOAN_STATUSES = ['activo', 'devuelto', 'dañado'] as const;
+export const LOAN_STATUSES = [
+  'solicitado',
+  'activo',
+  'vencido',
+  'devuelto',
+  'dañado',
+  'cancelado',
+] as const;
 
 export type LoanStatus = (typeof LOAN_STATUSES)[number];
 
@@ -126,26 +155,31 @@ export interface CreateInstrumentInput {
   name: string;
   category: InstrumentCategory;
   brand?: string;
+  model?: string;
   description: string;
   condition: InstrumentCondition;
   location?: string;
   imageUrl: string;
   imageKey?: string;
+  imageFile?: File;
 }
 
 export interface UpdateInstrumentInput {
   name?: string;
   category?: InstrumentCategory;
   brand?: string;
+  model?: string;
   description?: string;
   condition?: InstrumentCondition;
   status?: InstrumentStatus;
   location?: string;
   imageUrl?: string;
   imageKey?: string;
+  imageFile?: File;
 }
 
 export interface LoanFilters {
+  instrumentId?: string;
   borrowerId?: string;
   ownerId?: string;
   status?: LoanStatus | 'all';
@@ -178,4 +212,5 @@ export interface UploadUrlResponse {
 export interface UploadedImageResult {
   imageUrl: string;
   imageKey?: string;
+  file?: File;
 }

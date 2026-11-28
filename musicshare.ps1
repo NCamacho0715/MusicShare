@@ -104,7 +104,7 @@ function Sync-FrontendConfig {
             "VITE_API_BASE_URL=$invokeUrl",
             "VITE_S3_IMAGES_BASE_URL=http://localhost:4566/musicshare-instrument-images"
         )
-        $lines | Set-Content -Path $frontEnv -Force
+        [System.IO.File]::WriteAllLines($frontEnv, $lines, [System.Text.UTF8Encoding]::new($false))
         Write-Success "Frontend conectado a: $invokeUrl"
     } finally {
         Pop-Location
@@ -167,10 +167,9 @@ function Run-All-Tests {
             Write-Host "Ejecutando pruebas unitarias de Frontend con Vitest..."
             npx vitest run
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "Nota: vitest run reportó advertencias en entorno actual." -ForegroundColor Yellow
-            } else {
-                Write-Success "Pruebas de Frontend aprobadas."
+                throw "Fallaron las pruebas unitarias de Frontend (Vitest)"
             }
+            Write-Success "Pruebas de Frontend aprobadas."
         }
     } finally {
         Pop-Location

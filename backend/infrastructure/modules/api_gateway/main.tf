@@ -391,8 +391,8 @@ resource "aws_api_gateway_integration_response" "options_int_resp" {
   http_method = aws_api_gateway_method.options[each.key].http_method
   status_code = aws_api_gateway_method_response.options_200[each.key].status_code
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-User-Id,X-User-Role,X-User-Name,X-User-Email,Authorization'"
-    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,PUT,DELETE,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Accept,Authorization,X-User-Id,X-User-Role,X-User-Name,X-User-Email'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
   depends_on = [aws_api_gateway_integration.options_int]
@@ -411,6 +411,35 @@ resource "aws_lambda_permission" "api_gateway_permissions" {
 # Deployment & Stage
 resource "aws_api_gateway_deployment" "deployment" {
   rest_api_id = aws_api_gateway_rest_api.api.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.usuarios.id,
+      aws_api_gateway_resource.usuarios_id.id,
+      aws_api_gateway_resource.instrumentos.id,
+      aws_api_gateway_resource.instrumentos_id.id,
+      aws_api_gateway_resource.instrumentos_imagen.id,
+      aws_api_gateway_resource.prestamos.id,
+      aws_api_gateway_resource.prestamos_id.id,
+      aws_api_gateway_integration.post_usuarios_int.uri,
+      aws_api_gateway_integration.get_usuarios_int.uri,
+      aws_api_gateway_integration.get_usuarios_id_int.uri,
+      aws_api_gateway_integration.put_usuarios_id_int.uri,
+      aws_api_gateway_integration.delete_usuarios_id_int.uri,
+      aws_api_gateway_integration.post_instrumentos_int.uri,
+      aws_api_gateway_integration.get_instrumentos_int.uri,
+      aws_api_gateway_integration.get_instrumentos_id_int.uri,
+      aws_api_gateway_integration.put_instrumentos_id_int.uri,
+      aws_api_gateway_integration.delete_instrumentos_id_int.uri,
+      aws_api_gateway_integration.post_instrumentos_imagen_int.uri,
+      aws_api_gateway_integration.post_prestamos_int.uri,
+      aws_api_gateway_integration.get_prestamos_int.uri,
+      aws_api_gateway_integration.get_prestamos_id_int.uri,
+      aws_api_gateway_integration.put_prestamos_id_int.uri,
+      aws_api_gateway_integration.delete_prestamos_id_int.uri,
+      aws_api_gateway_integration_response.options_int_resp,
+    ]))
+  }
 
   depends_on = [
     aws_api_gateway_integration.post_usuarios_int,

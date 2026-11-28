@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Catálogo', end: true },
   { to: '/loans', label: 'Mis Préstamos', end: false },
   { to: '/instruments/new', label: 'Publicar', end: false },
+  { to: '/users', label: 'Usuarios', end: false },
 ];
 
 export function Navbar() {
@@ -245,32 +246,55 @@ export function Navbar() {
           </nav>
 
           {currentUser ? (
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-dark-cocoa/10 pt-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  aria-hidden="true"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pool-blue font-sans text-xs font-bold text-dark-cocoa"
-                >
-                  {initials}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-sans text-sm font-semibold text-dark-cocoa">
-                    {currentUser.name}
-                  </p>
-                  <p className="font-sans text-xs text-ink-muted">
-                    {getRoleLabel(currentUser.role)}
-                  </p>
+            <div className="mt-4 space-y-3 border-t border-dark-cocoa/10 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pool-blue font-sans text-xs font-bold text-dark-cocoa"
+                  >
+                    {initials}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-sans text-sm font-semibold text-dark-cocoa">
+                      {currentUser.name}
+                    </p>
+                    <p className="font-sans text-xs text-ink-muted">
+                      {getRoleLabel(currentUser.role)}
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] border border-dark-cocoa/20 bg-surface px-3 py-2 font-sans text-xs font-semibold text-dark-cocoa hover:bg-surface-muted cursor-pointer"
+                >
+                  <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>Cerrar sesión</span>
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] border border-dark-cocoa/20 bg-surface px-3 py-2 font-sans text-xs font-semibold text-dark-cocoa hover:bg-surface-muted cursor-pointer"
-              >
-                <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>Cerrar sesión</span>
-              </button>
+              {users.length > 1 ? (
+                <select
+                  aria-label="Cambiar usuario activo (móvil)"
+                  value={currentUser.id}
+                  onChange={(e) => {
+                    switchUser(e.target.value);
+                    const selected = users.find((u) => u.id === e.target.value);
+                    if (selected) {
+                      showToast(`Cambiado a: ${selected.name} (${getRoleLabel(selected.role)})`, 'info');
+                    }
+                  }}
+                  className="input-editorial text-xs font-semibold"
+                >
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} · {getRoleLabel(u.role)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </div>
           ) : null}
         </div>

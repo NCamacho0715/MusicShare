@@ -31,6 +31,9 @@ export function Footer() {
           <Link to="/instruments/new" className="hover:text-solar-yellow transition-colors">
             Publicar instrumento
           </Link>
+          <Link to="/users" className="hover:text-solar-yellow transition-colors">
+            Usuarios
+          </Link>
         </nav>
       </div>
     </footer>
