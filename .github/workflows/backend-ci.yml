@@ -1,0 +1,76 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    name: Lint, Test & Validate Infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./backend[dev]"
+
+      - name: Run Linter (Ruff)
+        run: |
+          ruff check backend/
+
+      - name: Run Unit Tests
+        run: |
+          cd backend
+          pytest tests/unit -v --tb=short
+
+      - name: Package Lambdas
+        run: |
+          python backend/scripts/package_lambdas.py
+
+      - name: Validate Terraform
+        run: |
+          cd backend/infrastructure
+          terraform init -input=false
+          terraform validate
+
+      - name: Start Floci (Docker Compose)
+        run: |
+          docker compose -f backend/docker-compose.yml up -d
+          python backend/scripts/wait_for_floci.py
+
+      - name: Terraform Plan & Apply (Floci)
+        run: |
+          cd backend/infrastructure
+          terraform plan -var-file="environments/ci.tfvars" -out=tfplan -input=false
+          terraform apply -input=false tfplan
+
+      - name: Seed Test Data
+        run: |
+          python backend/scripts/seed_data.py
+
+      - name: Run Contract, Integration & E2E Tests
+        run: |
+          cd backend
+          pytest tests/contract tests/integration tests/e2e -v --tb=short
+
+      - name: Stop Floci
+        if: always()
+        run: |
+          docker compose -f backend/docker-compose.yml down
